@@ -77,6 +77,7 @@ export const getWeather = tool({
       }
 
       const weatherData = await response.json();
+      console.log('Weather data:', weatherData);
       return weatherData;
     } catch (error) {
       console.error('Weather tool error:', error);

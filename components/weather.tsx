@@ -1,8 +1,19 @@
 'use client';
 
 import cx from 'classnames';
-import { format, isWithinInterval } from 'date-fns';
-import { useEffect, useState } from 'react';
+import { format, isWithinInterval, parseISO } from 'date-fns';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+} from 'recharts';
+import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 
 interface WeatherAtLocation {
   latitude: number;
@@ -196,10 +207,31 @@ const SAMPLE = {
     ],
   },
 };
-
 function n(num: number): number {
   return Math.ceil(num);
 }
+
+const CustomTooltip = ({ active, payload, label, isDay }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div
+        className={`p-2 rounded-md shadow-lg ${isDay ? 'bg-white' : 'bg-gray-900'} border ${isDay ? 'border-gray-200' : 'border-gray-700'}`}
+      >
+        <p
+          className={`text-sm font-medium ${isDay ? 'text-gray-900' : 'text-gray-100'}`}
+        >
+          {format(parseISO(label), 'MMM d, h:mm a')}
+        </p>
+        <p
+          className={`text-sm font-bold ${isDay ? 'text-blue-600' : 'text-indigo-300'}`}
+        >
+          {`${payload[0].value}°C`}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export function Weather({
   weatherAtLocation = SAMPLE,
@@ -212,7 +244,6 @@ export function Weather({
   const currentLow = Math.min(
     ...weatherAtLocation.hourly.temperature_2m.slice(0, 24),
   );
-
   const isDay = isWithinInterval(new Date(weatherAtLocation.current.time), {
     start: new Date(weatherAtLocation.daily.sunrise[0]),
     end: new Date(weatherAtLocation.daily.sunset[0]),
@@ -221,24 +252,33 @@ export function Weather({
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
     window.addEventListener('resize', handleResize);
-
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const hoursToShow = isMobile ? 5 : 6;
+  const chartData = useMemo(() => {
+    const currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
+      (time) => new Date(time) >= new Date(weatherAtLocation.current.time),
+    );
+    const startIndex = Math.max(0, currentTimeIndex - 6);
+    const sliceLength = 24;
 
-  // Find the index of the current time or the next closest time
+    return weatherAtLocation.hourly.time
+      .slice(startIndex, startIndex + sliceLength)
+      .map((time, index) => ({
+        time,
+        temp: weatherAtLocation.hourly.temperature_2m[startIndex + index],
+        unit: weatherAtLocation.hourly_units.temperature_2m,
+        isCurrent: time === weatherAtLocation.current.time,
+      }));
+  }, [weatherAtLocation]);
+
+  const hoursToShow = isMobile ? 5 : 6;
   const currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
     (time) => new Date(time) >= new Date(weatherAtLocation.current.time),
   );
-
-  // Slice the arrays to get the desired number of items
   const displayTimes = weatherAtLocation.hourly.time.slice(
     currentTimeIndex,
     currentTimeIndex + hoursToShow,
@@ -251,57 +291,144 @@ export function Weather({
   return (
     <div
       className={cx(
-        'flex flex-col gap-4 rounded-2xl p-4 skeleton-bg max-w-[500px]',
+        'flex flex-col gap-6 rounded-2xl p-6 max-w-[600px] w-full shadow-lg border',
         {
-          'bg-blue-400': isDay,
+          'bg-gray-100': isDay,
+          'bg-gray-800': !isDay,
         },
-        {
-          'bg-indigo-900': !isDay,
-        },
+        'border-gray-200 dark:border-gray-700',
       )}
     >
+      {/* Current Weather Summary */}
       <div className="flex flex-row justify-between items-center">
-        <div className="flex flex-row gap-2 items-center">
-          <div
-            className={cx(
-              'size-10 rounded-full skeleton-div',
-              {
-                'bg-yellow-300': isDay,
-              },
-              {
-                'bg-indigo-100': !isDay,
-              },
-            )}
-          />
-          <div className="text-4xl font-medium text-blue-50">
-            {n(weatherAtLocation.current.temperature_2m)}
-            {weatherAtLocation.current_units.temperature_2m}
-          </div>
-        </div>
-
-        <div className="text-blue-50">{`H:${n(currentHigh)}° L:${n(currentLow)}°`}</div>
-      </div>
-
-      <div className="flex flex-row justify-between">
-        {displayTimes.map((time, index) => (
-          <div key={time} className="flex flex-col items-center gap-1">
-            <div className="text-blue-100 text-xs">
-              {format(new Date(time), 'ha')}
+        <div className="flex flex-row gap-3 items-center">
+          {isDay ? (
+            <SunIcon className="w-12 h-12 text-blue-600" />
+          ) : (
+            <MoonIcon className="w-12 h-12 text-indigo-300" />
+          )}
+          <div>
+            <div
+              className={cx('text-5xl font-bold', {
+                'text-gray-900': isDay,
+                'text-gray-100': !isDay,
+              })}
+            >
+              {n(weatherAtLocation.current.temperature_2m)}
+              {weatherAtLocation.current_units.temperature_2m}
             </div>
             <div
-              className={cx(
-                'size-6 rounded-full skeleton-div',
-                {
-                  'bg-yellow-300': isDay,
-                },
-                {
-                  'bg-indigo-200': !isDay,
-                },
+              className={cx('text-sm', {
+                'text-gray-600': isDay,
+                'text-gray-400': !isDay,
+              })}
+            >
+              {format(
+                parseISO(weatherAtLocation.current.time),
+                'MMM d, h:mm a',
               )}
+            </div>
+          </div>
+        </div>
+        <div
+          className={cx('font-medium px-3 py-1 rounded-full', {
+            'bg-blue-100 text-blue-600': isDay,
+            'bg-indigo-900 text-indigo-300': !isDay,
+          })}
+        >
+          {`H:${n(currentHigh)}° L:${n(currentLow)}°`}
+        </div>
+      </div>
+
+      {/* Temperature Chart */}
+      <div className="h-48 w-full relative overflow-hidden">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          >
+            <defs>
+              <linearGradient id="dayGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.1} />
+                <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="nightGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.1} />
+                <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="time"
+              tick={{ fill: isDay ? '#374151' : '#d1d5db', fontSize: 10 }}
+              tickFormatter={(time) => format(parseISO(time), 'ha')}
+              axisLine={false}
+              tickLine={false}
+              padding={{ left: 10, right: 10 }}
+              interval={isMobile ? 3 : 2}
             />
-            <div className="text-blue-50 text-sm">
-              {n(displayTemperatures[index])}
-              {weatherAtLocation.hourly_units.temperature_2m}
+            <YAxis
+              tick={{ fill: isDay ? '#374151' : '#d1d5db', fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(temp) => `${temp}°`}
+              domain={['dataMin - 2', 'dataMax + 2']}
+              width={25}
+            />
+            <Tooltip content={<CustomTooltip isDay={isDay} />} />
+            <ReferenceLine
+              x={weatherAtLocation.current.time}
+              stroke={isDay ? '#2563eb' : '#818cf8'}
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              label={{
+                value: 'Now',
+                position: 'top',
+                fill: isDay ? '#2563eb' : '#818cf8',
+                fontSize: 10,
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="temp"
+              stroke={isDay ? '#2563eb' : '#818cf8'}
+              fill={isDay ? 'url(#dayGradient)' : 'url(#nightGradient)'}
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Hourly Forecast */}
+      <div className="flex flex-row justify-between">
+        {displayTimes.map((time, index) => (
+          <div
+            key={time}
+            className={cx('flex flex-col items-center gap-1 p-2 rounded-lg', {
+              'bg-blue-100': time === weatherAtLocation.current.time && isDay,
+              'bg-indigo-900':
+                time === weatherAtLocation.current.time && !isDay,
+            })}
+          >
+            <div
+              className={cx('text-xs', {
+                'text-gray-600': isDay,
+                'text-gray-400': !isDay,
+              })}
+            >
+              {format(new Date(time), 'ha')}
+            </div>
+            {isDay ? (
+              <SunIcon className="w-5 h-5 text-blue-600" />
+            ) : (
+              <MoonIcon className="w-5 h-5 text-indigo-300" />
+            )}
+            <div
+              className={cx('text-sm font-medium', {
+                'text-gray-900': isDay,
+                'text-gray-100': !isDay,
+              })}
+            >
+              {n(displayTemperatures[index])}°
             </div>
           </div>
         ))}
