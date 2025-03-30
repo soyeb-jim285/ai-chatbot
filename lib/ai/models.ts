@@ -1,6 +1,6 @@
-export const DEFAULT_CHAT_MODEL: string = 'chat-model';
+export const DEFAULT_CHAT_MODEL: string = "gemini-2.0-flash-001";
 
-interface ChatModel {
+export interface ChatModel {
   id: string;
   name: string;
   description: string;
@@ -8,13 +8,33 @@ interface ChatModel {
 
 export const chatModels: Array<ChatModel> = [
   {
-    id: 'chat-model',
-    name: 'Chat model',
-    description: 'Primary model for all-purpose chat',
+    id: "gemini-2.0-flash-001",
+    name: "Gemini 2.0 Flash",
+    description: "Fast and efficient model for general chat",
   },
   {
-    id: 'chat-model-reasoning',
-    name: 'Reasoning model',
-    description: 'Uses advanced reasoning',
+    id: "gemini-1.5-flash",
+    name: "Gemini 1.5 Flash",
+    description: "Balanced performance for everyday conversations",
+  },
+  {
+    id: "gemini-1.5-pro",
+    name: "Gemini 1.5 Pro",
+    description: "Enhanced capabilities for complex tasks",
+  },
+  {
+    id: "gemini-2.0-exp",
+    name: "Gemini 2.0 Experimental",
+    description: "Latest experimental features and capabilities",
+  },
+  {
+    id: "llama-3.1-32B",
+    name: "Llama 3.1 32B",
+    description: "Open-source model with strong reasoning abilities",
+  },
+  {
+    id: "deepseek-r1-distill-llama-70b",
+    name: "DeepSeek Reasoning",
+    description: "Specialized for step-by-step reasoning tasks",
   },
 ];
