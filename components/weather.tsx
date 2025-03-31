@@ -1,19 +1,27 @@
 'use client';
 
-import cx from 'classnames';
+import type React from 'react';
+
 import { format, isWithinInterval, parseISO } from 'date-fns';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   Area,
   AreaChart,
-  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
   ReferenceLine,
+  CartesianGrid,
 } from 'recharts';
-import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
+import {
+  MapPinIcon,
+  CalendarIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  GlobeIcon,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface WeatherAtLocation {
   latitude: number;
@@ -50,6 +58,12 @@ interface WeatherAtLocation {
     time: string[];
     sunrise: string[];
     sunset: string[];
+  };
+  locationName: string;
+  locationDetails?: {
+    name: string;
+    state?: string;
+    country: string;
   };
 }
 
@@ -206,33 +220,184 @@ const SAMPLE = {
       '2024-10-11T18:54',
     ],
   },
+  locationName: 'Dhaka',
+  locationDetails: {
+    name: 'Dhaka',
+    state: 'Dhaka Division',
+    country: 'Bangladesh',
+  },
 };
+
 function n(num: number): number {
   return Math.ceil(num);
 }
+const CustomLabel = ({ viewBox, data, isDay }: any) => {
+  if (!viewBox) return <g />; // Return empty group instead of null
+
+  // Find the data point for current time
+  if (!data) return <g />;
+
+  // Get the y-coordinate for the current temperature
+  const y = data.y || viewBox.y;
+  const x = viewBox.x;
+
+  return <CurrentTimeIndicator x={x} y={y} isDay={isDay} />;
+};
 
 const CustomTooltip = ({ active, payload, label, isDay }: any) => {
   if (active && payload && payload.length) {
     return (
       <div
-        className={`p-2 rounded-md shadow-lg ${isDay ? 'bg-white' : 'bg-gray-900'} border ${isDay ? 'border-gray-200' : 'border-gray-700'}`}
+        className={`p-2 rounded-lg shadow-lg ${isDay ? 'bg-white' : 'bg-gray-900'} border ${isDay ? 'border-gray-100' : 'border-gray-700'}`}
       >
         <p
-          className={`text-sm font-medium ${isDay ? 'text-gray-900' : 'text-gray-100'}`}
+          className={`text-xs font-medium ${isDay ? 'text-gray-800' : 'text-gray-100'}`}
         >
-          {format(parseISO(label), 'MMM d, h:mm a')}
+          {format(parseISO(label), 'h:mm a')}
         </p>
         <p
-          className={`text-sm font-bold ${isDay ? 'text-blue-600' : 'text-indigo-300'}`}
-        >
-          {`${payload[0].value}°C`}
-        </p>
+          className={`text-sm font-bold ${isDay ? 'text-sky-600' : 'text-sky-400'}`}
+        >{`${payload[0].value}°C`}</p>
       </div>
     );
   }
   return null;
 };
 
+// Weather icons based on time of day
+const WeatherIcon = ({ isDay }: { isDay: boolean }) => {
+  return (
+    <div
+      className={cn(
+        'relative w-16 h-16 flex items-center justify-center',
+        isDay
+          ? 'bg-gradient-to-br from-amber-300 to-amber-500'
+          : 'bg-gradient-to-br from-indigo-700 to-indigo-900',
+        'rounded-full shadow-lg',
+      )}
+    >
+      {isDay ? (
+        // Sun icon with rays
+        <>
+          <div className="absolute inset-0 rounded-full bg-amber-400 opacity-30 animate-pulse" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="white"
+            className="w-10 h-10"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <path
+              d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+              strokeWidth="2"
+            />
+          </svg>
+        </>
+      ) : (
+        // Moon icon with stars
+        <>
+          <div className="absolute inset-0 rounded-full bg-indigo-500 opacity-20 animate-pulse" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="white"
+            className="w-10 h-10"
+          >
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+          <div className="absolute top-1 right-1 w-1 h-1 bg-white rounded-full" />
+          <div className="absolute bottom-2 left-2 w-1.5 h-1.5 bg-white rounded-full" />
+        </>
+      )}
+    </div>
+  );
+};
+
+// Location display component
+const LocationDisplay = ({
+  locationDetails,
+  isDay,
+}: {
+  locationDetails?: { name: string; state?: string; country: string };
+  isDay: boolean;
+}) => {
+  if (!locationDetails) return null;
+
+  const { name, state, country } = locationDetails;
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center gap-1.5">
+        <MapPinIcon className="w-5 h-5 text-white" />
+        <h2 className="text-2xl font-bold text-white tracking-tight truncate">
+          {name}
+        </h2>
+      </div>
+
+      <div className="flex items-center mt-0.5 ml-6">
+        <div
+          className={cn(
+            'text-xs font-medium px-2 py-0.5 rounded-full',
+            isDay ? 'bg-white/20 text-white' : 'bg-white/10 text-white/90',
+          )}
+        >
+          <span className="flex items-center gap-1">
+            <GlobeIcon className="w-3 h-3" />
+            {state ? `${state}, ${country}` : country}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Custom current time indicator component
+const CurrentTimeIndicator = ({
+  x,
+  y,
+  isDay,
+}: { x: number; y: number; isDay: boolean }) => {
+  return (
+    <g>
+      {/* Vertical line */}
+      <line
+        x1={x}
+        y1={0}
+        x2={x}
+        y2={y}
+        stroke={isDay ? 'rgba(14, 165, 233, 0.8)' : 'rgba(129, 140, 248, 0.8)'}
+        strokeWidth={2}
+        strokeDasharray="4 2"
+      />
+
+      {/* Circle indicator at the data point */}
+      <circle
+        cx={x}
+        cy={y}
+        r={4}
+        fill={isDay ? '#0ea5e9' : '#818cf8'}
+        stroke={isDay ? '#ffffff' : '#1e293b'}
+        strokeWidth={2}
+        className="animate-pulse"
+      />
+
+      {/* "Now" label */}
+      <text
+        x={x}
+        y={y - 10}
+        textAnchor="middle"
+        fill={isDay ? '#0369a1' : '#818cf8'}
+        fontSize={10}
+        fontWeight="bold"
+        className="text-xs"
+      >
+        Now
+      </text>
+    </g>
+  );
+};
+
+// Add a new wrapper component that completely isolates the weather widget
 export function Weather({
   weatherAtLocation = SAMPLE,
 }: {
@@ -250,12 +415,103 @@ export function Weather({
   });
 
   const [isMobile, setIsMobile] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Create a ref for the container
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Create a ref for the chart
+  const chartRef = useRef<any>(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Improved scroll handling to prevent propagation but allow natural scrolling
+    const handleWheel = (e: WheelEvent) => {
+      // Stop propagation to parent elements
+      e.stopPropagation();
+
+      // Don't prevent default scrolling behavior - this allows natural scrolling
+      // Only prevent default if we're at the boundaries to avoid page scroll
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtTop = scrollTop <= 0 && e.deltaY < 0;
+      const isAtBottom =
+        scrollTop + clientHeight >= scrollHeight - 10 && e.deltaY > 0;
+
+      if (isAtTop || isAtBottom) {
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, {
+      passive: false,
+      capture: true,
+    });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel, { capture: true });
+    };
+  }, []);
+
+  // Add touch event handling for mobile scrolling
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let startY = 0;
+    let startScrollTop = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+      startScrollTop = container.scrollTop;
+
+      // Prevent parent elements from handling this touch
+      e.stopPropagation();
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const deltaY = startY - e.touches[0].clientY;
+      container.scrollTop = startScrollTop + deltaY;
+
+      // Prevent default only if we're scrolling inside the container
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtTop = scrollTop <= 0 && deltaY < 0;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight && deltaY > 0;
+
+      if (!isAtTop && !isAtBottom) {
+        e.preventDefault();
+      }
+
+      e.stopPropagation();
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, {
+      passive: false,
+    });
+    container.addEventListener('touchmove', handleTouchMove, {
+      passive: false,
+    });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+    };
   }, []);
 
   const chartData = useMemo(() => {
@@ -275,7 +531,7 @@ export function Weather({
       }));
   }, [weatherAtLocation]);
 
-  const hoursToShow = isMobile ? 5 : 6;
+  const hoursToShow = isMobile ? 5 : 8;
   const currentTimeIndex = weatherAtLocation.hourly.time.findIndex(
     (time) => new Date(time) >= new Date(weatherAtLocation.current.time),
   );
@@ -288,151 +544,419 @@ export function Weather({
     currentTimeIndex + hoursToShow,
   );
 
+  // Update these parts in your Weather component
+
+  useEffect(() => {
+    // Create style element with more aggressive isolation
+    const style = document.createElement('style');
+    style.innerHTML = `
+    .weather-widget-container {
+      position: relative;
+      z-index: 50;
+      isolation: isolate;
+      touch-action: pan-y;
+      max-height: 85vh;
+      overflow-y: auto;
+      width: 100%; /* Ensure it respects container width */
+      box-sizing: border-box; /* Include padding in width calculations */
+    }
+    
+    @media (max-width: 640px) {
+      .weather-widget-container {
+        max-width: 95%;
+        margin: 0 auto;
+      }
+    }
+    
+    .weather-widget-container * {
+      pointer-events: auto;
+      touch-action: auto;
+    }
+    
+    .chart-container {
+      isolation: isolate;
+      pointer-events: auto;
+      width: 100%; /* Make chart container responsive */
+    }
+    
+    .chart-container .recharts-wrapper {
+      pointer-events: auto;
+      touch-action: auto;
+      width: 100% !important; /* Force chart to take full width */
+    }
+    
+    /* Rest of your styles... */
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+  // Create a function to handle all events
+  const stopAllEvents = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
+    // Mark the element as being interacted with
+    if (containerRef.current) {
+      containerRef.current.dataset.interacting = 'true';
+
+      // Set a global flag that can be checked by the scroll handler
+      window.weatherComponentInteracting = true;
+
+      // Clear the flag after a short delay
+      clearTimeout(window.weatherInteractionTimer);
+      window.weatherInteractionTimer = setTimeout(() => {
+        window.weatherComponentInteracting = false;
+        if (containerRef.current) {
+          delete containerRef.current.dataset.interacting;
+        }
+      }, 500) as unknown as number;
+    }
+  };
+
   return (
     <div
-      className={cx(
-        'flex flex-col gap-6 rounded-2xl p-6 max-w-[600px] w-full shadow-lg border',
-        {
-          'bg-gray-100': isDay,
-          'bg-gray-800': !isDay,
-        },
-        'border-gray-200 dark:border-gray-700',
+      ref={containerRef}
+      className={cn(
+        'w-full mx-auto overflow-y-auto rounded-2xl shadow-xl weather-widget-container',
+        // Adjust width based on screen size
+        'max-w-[95vw] sm:max-w-[85vw] md:max-w-3xl', // More adaptive width constraints
+        isDay
+          ? 'bg-gradient-to-br from-sky-50 via-white to-blue-50 border border-sky-100'
+          : 'bg-gradient-to-br from-gray-900 via-gray-800 to-indigo-950 border border-gray-700',
       )}
+      onClick={stopAllEvents}
+      onMouseDown={stopAllEvents}
+      onMouseUp={stopAllEvents}
+      onMouseMove={stopAllEvents}
+      onMouseEnter={stopAllEvents}
+      onMouseLeave={(e) => {
+        stopAllEvents(e);
+        // Clear the interaction flag
+        window.weatherComponentInteracting = false;
+        if (containerRef.current) {
+          delete containerRef.current.dataset.interacting;
+        }
+      }}
+      onWheel={(e) => {
+        // Prevent wheel events from propagating
+        e.stopPropagation();
+      }}
+      onTouchStart={stopAllEvents}
+      onTouchMove={stopAllEvents}
+      onTouchEnd={stopAllEvents}
     >
-      {/* Current Weather Summary */}
-      <div className="flex flex-row justify-between items-center">
-        <div className="flex flex-row gap-3 items-center">
-          {isDay ? (
-            <SunIcon className="w-12 h-12 text-blue-600" />
-          ) : (
-            <MoonIcon className="w-12 h-12 text-indigo-300" />
-          )}
-          <div>
-            <div
-              className={cx('text-5xl font-bold', {
-                'text-gray-900': isDay,
-                'text-gray-100': !isDay,
-              })}
-            >
-              {n(weatherAtLocation.current.temperature_2m)}
-              {weatherAtLocation.current_units.temperature_2m}
-            </div>
-            <div
-              className={cx('text-sm', {
-                'text-gray-600': isDay,
-                'text-gray-400': !isDay,
-              })}
-            >
+      {/* Enhanced Location Header with Detailed Information */}
+      <div
+        className={cn(
+          'relative overflow-hidden',
+          isDay
+            ? 'bg-gradient-to-r from-sky-500 to-blue-600'
+            : 'bg-gradient-to-r from-indigo-900 to-purple-900',
+        )}
+      >
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern
+                id="weatherPattern"
+                x="0"
+                y="0"
+                width="20"
+                height="20"
+                patternUnits="userSpaceOnUse"
+              >
+                <circle cx="10" cy="10" r="1" fill="white" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#weatherPattern)" />
+          </svg>
+        </div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between py-3 px-5 gap-2">
+          {/* Location information with name, state, country */}
+          <LocationDisplay
+            locationDetails={weatherAtLocation.locationDetails}
+            isDay={isDay}
+          />
+
+          <div className="flex items-center gap-2 text-white/80 ml-6 sm:ml-0">
+            <CalendarIcon className="w-4 h-4" />
+            <span className="text-sm">
               {format(
                 parseISO(weatherAtLocation.current.time),
                 'MMM d, h:mm a',
               )}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex flex-col sm:flex-row w-full">
+        {/* Left Column - Current Weather */}
+        <div className="w-full sm:w-1/3 p-4 flex flex-col items-center justify-center border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700">
+          <WeatherIcon isDay={isDay} />
+
+          <div className="mt-3 text-center">
+            <div
+              className={cn(
+                'text-4xl font-bold',
+                isDay ? 'text-gray-900' : 'text-white',
+              )}
+            >
+              {n(weatherAtLocation.current.temperature_2m)}
+              {weatherAtLocation.current_units.temperature_2m}
+            </div>
+
+            <div className="flex items-center justify-center gap-4 mt-2">
+              <div
+                className={cn(
+                  'flex items-center gap-1',
+                  isDay ? 'text-amber-600' : 'text-sky-400',
+                )}
+              >
+                <ArrowUpIcon className="w-3 h-3" />
+                <span className="text-sm font-medium">{n(currentHigh)}°</span>
+              </div>
+              <div
+                className={cn(
+                  'flex items-center gap-1',
+                  isDay ? 'text-sky-600' : 'text-indigo-400',
+                )}
+              >
+                <ArrowDownIcon className="w-3 h-3" />
+                <span className="text-sm font-medium">{n(currentLow)}°</span>
+              </div>
+            </div>
+
+            <div
+              className={cn(
+                'mt-2 text-xs px-3 py-1 rounded-full inline-block',
+                isDay
+                  ? 'bg-sky-100 text-sky-800'
+                  : 'bg-indigo-900/50 text-indigo-200',
+              )}
+            >
+              {isDay ? 'Daytime' : 'Nighttime'}
+            </div>
+
+            {/* Timezone information */}
+            <div className="mt-2 text-xs text-center">
+              <span
+                className={cn(
+                  'text-xs',
+                  isDay ? 'text-gray-500' : 'text-gray-400',
+                )}
+              >
+                {weatherAtLocation.timezone} (
+                {weatherAtLocation.timezone_abbreviation})
+              </span>
             </div>
           </div>
         </div>
-        <div
-          className={cx('font-medium px-3 py-1 rounded-full', {
-            'bg-blue-100 text-blue-600': isDay,
-            'bg-indigo-900 text-indigo-300': !isDay,
-          })}
-        >
-          {`H:${n(currentHigh)}° L:${n(currentLow)}°`}
-        </div>
-      </div>
 
-      {/* Temperature Chart */}
-      <div className="h-48 w-full relative overflow-hidden">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={chartData}
-            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="dayGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.1} />
-                <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="nightGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.1} />
-                <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="time"
-              tick={{ fill: isDay ? '#374151' : '#d1d5db', fontSize: 10 }}
-              tickFormatter={(time) => format(parseISO(time), 'ha')}
-              axisLine={false}
-              tickLine={false}
-              padding={{ left: 10, right: 10 }}
-              interval={isMobile ? 3 : 2}
-            />
-            <YAxis
-              tick={{ fill: isDay ? '#374151' : '#d1d5db', fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(temp) => `${temp}°`}
-              domain={['dataMin - 2', 'dataMax + 2']}
-              width={25}
-            />
-            <Tooltip content={<CustomTooltip isDay={isDay} />} />
-            <ReferenceLine
-              x={weatherAtLocation.current.time}
-              stroke={isDay ? '#2563eb' : '#818cf8'}
-              strokeWidth={1}
-              strokeDasharray="3 3"
-              label={{
-                value: 'Now',
-                position: 'top',
-                fill: isDay ? '#2563eb' : '#818cf8',
-                fontSize: 10,
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="temp"
-              stroke={isDay ? '#2563eb' : '#818cf8'}
-              fill={isDay ? 'url(#dayGradient)' : 'url(#nightGradient)'}
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+        {/* Right Column - Chart and Hourly Forecast */}
+        <div className="w-full sm:w-2/3 p-4">
+          {/* Temperature Chart */}
+          <div className="h-24 mb-4 relative chart-container w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={chartData}
+                margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+                ref={chartRef}
+              >
+                <defs>
+                  <linearGradient id="dayGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor={isDay ? '#0ea5e9' : '#818cf8'}
+                      stopOpacity={0.8}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor={isDay ? '#0ea5e9' : '#818cf8'}
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  opacity={0.2}
+                />
+                <XAxis
+                  dataKey="time"
+                  tick={{ fill: isDay ? '#64748b' : '#94a3b8', fontSize: 9 }}
+                  tickFormatter={(time) => format(parseISO(time), 'ha')}
+                  axisLine={false}
+                  tickLine={false}
+                  padding={{ left: 5, right: 5 }}
+                  interval={isMobile ? 3 : 2}
+                />
+                <YAxis
+                  tick={{ fill: isDay ? '#64748b' : '#94a3b8', fontSize: 9 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(temp) => `${temp}°`}
+                  domain={['dataMin - 1', 'dataMax + 1']}
+                  width={30}
+                  tickCount={3}
+                  dx={3} // Add padding to move labels away from the divider
+                />
+                <Tooltip
+                  content={<CustomTooltip isDay={isDay} />}
+                  cursor={false}
+                  isAnimationActive={false}
+                  wrapperStyle={{ pointerEvents: 'none' }}
+                />
+                {/* Current time reference line */}
+                <ReferenceLine
+                  x={weatherAtLocation.current.time}
+                  stroke={isDay ? '#0284c7' : '#818cf8'}
+                  strokeWidth={1.5}
+                  strokeDasharray="3 3"
+                  label={(props) => {
+                    // Find the data point for current time
+                    const currentPoint = chartData.find(
+                      (item) => item.time === weatherAtLocation.current.time,
+                    );
 
-      {/* Hourly Forecast */}
-      <div className="flex flex-row justify-between">
-        {displayTimes.map((time, index) => (
+                    // Get the y-coordinate for the current temperature
+                    const yScale = chartRef.current?.state?.yAxis?.scale;
+                    const y =
+                      currentPoint && yScale
+                        ? yScale(currentPoint.temp)
+                        : props.viewBox?.y || 0;
+
+                    return (
+                      <CustomLabel
+                        viewBox={props.viewBox}
+                        data={{ y }}
+                        isDay={isDay}
+                      />
+                    );
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="temp"
+                  stroke={isDay ? '#0284c7' : '#818cf8'}
+                  fill="url(#dayGradient)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Hourly Forecast */}
           <div
-            key={time}
-            className={cx('flex flex-col items-center gap-1 p-2 rounded-lg', {
-              'bg-blue-100': time === weatherAtLocation.current.time && isDay,
-              'bg-indigo-900':
-                time === weatherAtLocation.current.time && !isDay,
-            })}
-          >
-            <div
-              className={cx('text-xs', {
-                'text-gray-600': isDay,
-                'text-gray-400': !isDay,
-              })}
-            >
-              {format(new Date(time), 'ha')}
-            </div>
-            {isDay ? (
-              <SunIcon className="w-5 h-5 text-blue-600" />
-            ) : (
-              <MoonIcon className="w-5 h-5 text-indigo-300" />
+            className={cn(
+              'grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 rounded-xl',
+              isDay ? 'bg-white/50' : 'bg-gray-800/50',
             )}
-            <div
-              className={cx('text-sm font-medium', {
-                'text-gray-900': isDay,
-                'text-gray-100': !isDay,
-              })}
-            >
-              {n(displayTemperatures[index])}°
-            </div>
+          >
+            {displayTimes.slice(0, 4).map((time, index) => (
+              <div
+                key={time}
+                className={cn(
+                  'flex flex-col items-center p-2 rounded-lg transition-all',
+                  time === weatherAtLocation.current.time
+                    ? isDay
+                      ? 'bg-sky-100 shadow-sm'
+                      : 'bg-indigo-900/50 shadow-sm'
+                    : isDay
+                      ? 'hover:bg-sky-50'
+                      : 'hover:bg-gray-800',
+                )}
+              >
+                <div
+                  className={cn(
+                    'text-xs font-medium',
+                    isDay ? 'text-gray-600' : 'text-gray-400',
+                  )}
+                >
+                  {format(new Date(time), 'ha')}
+                </div>
+
+                <div
+                  className={cn(
+                    'my-1 w-6 h-6 rounded-full flex items-center justify-center',
+                    isDay ? 'bg-amber-100' : 'bg-indigo-900/50',
+                  )}
+                >
+                  {isDay ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-4 h-4 text-amber-500"
+                    >
+                      <circle cx="12" cy="12" r="5" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-4 h-4 text-indigo-400"
+                    >
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                  )}
+                </div>
+
+                <div
+                  className={cn(
+                    'text-sm font-semibold',
+                    isDay ? 'text-gray-900' : 'text-white',
+                  )}
+                >
+                  {n(displayTemperatures[index])}°
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
+
+      {/* Footer with elevation information */}
+      <div
+        className={cn(
+          'px-4 py-2 text-xs border-t',
+          isDay
+            ? 'bg-sky-50/50 border-sky-100 text-sky-700'
+            : 'bg-gray-900/50 border-gray-700 text-gray-400',
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <span>Elevation: {weatherAtLocation.elevation}m</span>
+          <span>
+            {weatherAtLocation.latitude.toFixed(2)}°N,{' '}
+            {weatherAtLocation.longitude.toFixed(2)}°E
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function WeatherWidget() {
+  // Sample data with enhanced location details
+  const sampleData = {
+    ...SAMPLE,
+    locationDetails: {
+      name: 'San Francisco',
+      state: 'California',
+      country: 'United States',
+    },
+  };
+
+  return (
+    <div className="w-full px-4 mx-auto">
+      <Weather weatherAtLocation={sampleData} />
     </div>
   );
 }

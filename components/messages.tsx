@@ -1,11 +1,18 @@
-import { UIMessage } from 'ai';
+import type { UIMessage } from 'ai';
 import { PreviewMessage, ThinkingMessage } from './message';
 import { useScrollToBottom } from './use-scroll-to-bottom';
 import { Overview } from './overview';
 import { memo } from 'react';
-import { Vote } from '@/lib/db/schema';
+import type { Vote } from '@/lib/db/schema';
 import equal from 'fast-deep-equal';
-import { UseChatHelpers } from '@ai-sdk/react';
+import type { UseChatHelpers } from '@ai-sdk/react';
+
+declare global {
+  interface Window {
+    weatherComponentInteracting: boolean;
+    weatherInteractionTimer: number;
+  }
+}
 
 interface MessagesProps {
   chatId: string;
@@ -28,12 +35,20 @@ function PureMessages({
   isReadonly,
 }: MessagesProps) {
   const [messagesContainerRef, messagesEndRef] =
-    useScrollToBottom<HTMLDivElement>();
+    useScrollToBottom<HTMLDivElement>({
+      shouldAutoScroll: () => !window.weatherComponentInteracting,
+    });
 
   return (
     <div
       ref={messagesContainerRef}
       className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4"
+      onScroll={(e) => {
+        // If we're interacting with a weather component, don't interfere with manual scrolling
+        if (window.weatherComponentInteracting) {
+          e.stopPropagation();
+        }
+      }}
     >
       {messages.length === 0 && <Overview />}
 

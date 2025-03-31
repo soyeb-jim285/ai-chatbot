@@ -17,9 +17,13 @@ type GeocodingResponse = z.infer<typeof GeocodingResponseSchema>;
 /**
  * Convert a location string to latitude and longitude using OpenWeatherMap geocoding API
  */
-async function geocodeLocation(
-  location: string,
-): Promise<{ latitude: number; longitude: number }> {
+async function geocodeLocation(location: string): Promise<{
+  latitude: number;
+  longitude: number;
+  name: string;
+  state?: string;
+  country: string;
+}> {
   const apiKey = process.env.OPENWEATHERMAP_API_KEY;
 
   if (!apiKey) {
@@ -45,11 +49,16 @@ async function geocodeLocation(
     throw new Error(`Location "${location}" not found`);
   }
 
-  const { lat, lon } = parsedData.data[0];
+  const { lat, lon, name, country, state } = parsedData.data[0];
   console.log('Parsed geocoding data:', parsedData.data);
+
+  // Return individual components instead of formatted string
   return {
     latitude: lat,
     longitude: lon,
+    name,
+    state: state || undefined, // Ensure state is undefined rather than null or empty string
+    country,
   };
 }
 
@@ -63,7 +72,14 @@ export const getWeather = tool({
   execute: async ({ location }) => {
     try {
       // Step 1: Convert location to coordinates
-      const { latitude, longitude } = await geocodeLocation(location);
+      const { latitude, longitude, name, state, country } =
+        await geocodeLocation(location);
+
+      // Format location name - ensure we only include state if it exists and isn't empty
+      const locationName =
+        state && state.trim() !== ''
+          ? `${name}, ${state}, ${country}`
+          : `${name}, ${country}`;
 
       // Step 2: Fetch weather data using the coordinates
       const response = await fetch(
@@ -77,8 +93,20 @@ export const getWeather = tool({
       }
 
       const weatherData = await response.json();
-      console.log('Weather data:', weatherData);
-      return weatherData;
+
+      // Add location information to weather data - only include state if it exists
+      const weatherWithLocation = {
+        ...weatherData,
+        locationName,
+        locationDetails: {
+          name,
+          ...(state && state.trim() !== '' ? { state } : {}),
+          country,
+        },
+      };
+
+      console.log('Weather data:', weatherWithLocation);
+      return weatherWithLocation;
     } catch (error) {
       console.error('Weather tool error:', error);
       throw new Error(
