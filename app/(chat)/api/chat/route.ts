@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       messages: Array<UIMessage>;
       selectedChatModel: string;
     } = await request.json();
+    console.log('Ekebare ager.', messages);
 
     const session = await auth();
 
@@ -67,20 +68,21 @@ export async function POST(request: Request) {
         return new Response('Unauthorized', { status: 401 });
       }
     }
-
+    console.log('The message a:', messages);
     await saveMessages({
       messages: [
         {
           chatId: id,
           id: userMessage.id,
           role: 'user',
+          content: userMessage.content,
           parts: userMessage.parts,
           attachments: userMessage.experimental_attachments ?? [],
           createdAt: new Date(),
         },
       ],
     });
-    console.log(messages);
+    console.log('The message:', messages);
     return createDataStreamResponse({
       execute: (dataStream) => {
         const result = streamText({
@@ -131,6 +133,7 @@ export async function POST(request: Request) {
                     {
                       id: assistantId,
                       chatId: id,
+                      content: assistantMessage.content,
                       role: assistantMessage.role,
                       parts: assistantMessage.parts,
                       attachments:
@@ -139,6 +142,7 @@ export async function POST(request: Request) {
                     },
                   ],
                 });
+                console.log('Porer message', messages);
               } catch (_) {
                 console.error('Failed to save chat');
               }
