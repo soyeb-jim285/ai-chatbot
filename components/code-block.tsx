@@ -37,6 +37,7 @@ export const CodeBlock = memo(function CodeBlock({
   children: React.ReactNode;
 }) {
   // If this is inline code (surrounded by backticks), render it with the specified styling
+  // If this is inline code (surrounded by backticks), render it with the specified styling
   if (inline) {
     return (
       <code
@@ -50,7 +51,9 @@ export const CodeBlock = memo(function CodeBlock({
 
   // For block code, use the enhanced block renderer
   return (
-    <BlockCodeRenderer className={className} children={children} {...props} />
+    <BlockCodeRenderer className={className} {...props}>
+      {children}
+    </BlockCodeRenderer>
   );
 });
 
@@ -146,7 +149,7 @@ function BlockCodeRenderer({
       overflow: 'hidden',
       backgroundColor: 'var(--code-bg)',
       cursor: 'text',
-      WebkitUserSelect: 'text',
+      webkitUserSelect: 'text',
       userSelect: 'text',
     },
     '.cm-scroller': {
@@ -155,7 +158,7 @@ function BlockCodeRenderer({
       width: '100%',
       backgroundColor: 'inherit',
       fontFamily: 'var(--font-geist-mono, monospace)',
-      WebkitUserSelect: 'text',
+      webkitUserSelect: 'text',
       userSelect: 'text',
     },
     '.cm-content': {
@@ -165,7 +168,7 @@ function BlockCodeRenderer({
       fontSize: '0.9rem',
       lineHeight: '1.5',
       caretColor: 'transparent',
-      WebkitUserSelect: 'text',
+      webkitUserSelect: 'text',
       userSelect: 'text',
     },
     '.cm-cursor': {
@@ -174,7 +177,7 @@ function BlockCodeRenderer({
     '.cm-line': {
       backgroundColor: 'inherit',
       padding: '0 0.25rem',
-      WebkitUserSelect: 'text',
+      webkitUserSelect: 'text',
       userSelect: 'text',
     },
     '.cm-gutters': {
@@ -238,7 +241,7 @@ function BlockCodeRenderer({
       if (containerRef.current.firstChild) {
         const editorElement = containerRef.current.firstChild as HTMLElement;
         editorElement.style.userSelect = 'text';
-        editorElement.style.WebkitUserSelect = 'text';
+        editorElement.style.webkitUserSelect = 'text';
       }
     }
   }, [mounted, code, language, resolvedTheme]);
